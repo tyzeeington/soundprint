@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SoundPrint Visual DAW - See Your Sound</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Top Bar -->
+    <header id="top-bar">
+      <div class="logo">
+        <span class="logo-icon">&#9835;</span>
+        <span class="logo-text">SoundPrint <span class="subtitle">Visual DAW</span></span>
+      </div>
+      <div class="transport-controls">
+        <button id="btn-rewind" class="transport-btn" title="Rewind" aria-label="Rewind">&#9194;</button>
+        <button id="btn-play" class="transport-btn play-btn" title="Play" aria-label="Play">&#9654;</button>
+        <button id="btn-stop" class="transport-btn" title="Stop" aria-label="Stop">&#9632;</button>
+        <button id="btn-record" class="transport-btn record-btn" title="Record" aria-label="Record">&#9679;</button>
+        <div class="bpm-display">
+          <label for="bpm-input">BPM</label>
+          <input type="number" id="bpm-input" value="120" min="40" max="300" step="1">
+        </div>
+        <div class="time-sig">
+          <span id="time-display">0:00.000</span>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button id="btn-sign-language" class="action-btn sign-btn" title="Enable Sign Language Control">
+          <span class="hand-icon">&#9995;</span> Sign Mode
+        </button>
+        <button id="btn-accessibility" class="action-btn" title="Accessibility Settings">&#9881; A11y</button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="main-content">
+      <!-- Left Panel - Instruments & Sign Language -->
+      <aside id="left-panel">
+        <div class="panel-section" id="sign-language-panel">
+          <h3>Sign Language Control</h3>
+          <div id="camera-feed-container">
+            <video id="camera-feed" autoplay playsinline muted></video>
+            <canvas id="gesture-overlay"></canvas>
+            <div id="gesture-status">Camera Off</div>
+          </div>
+          <div id="detected-gesture">
+            <div class="gesture-label">Detected Gesture</div>
+            <div id="gesture-name">--</div>
+            <div id="gesture-action">Enable camera to start</div>
+          </div>
+          <div id="gesture-mappings">
+            <h4>Gesture Mappings</h4>
+            <div class="mapping-item">
+              <span class="gesture-icon">&#9994;</span>
+              <span class="mapping-desc">Fist &rarr; Stop / Mute</span>
+            </div>
+            <div class="mapping-item">
+              <span class="gesture-icon">&#9995;</span>
+              <span class="mapping-desc">Open Hand &rarr; Play</span>
+            </div>
+            <div class="mapping-item">
+              <span class="gesture-icon">&#9996;</span>
+              <span class="mapping-desc">Peace &rarr; Add Track</span>
+            </div>
+            <div class="mapping-item">
+              <span class="gesture-icon">&#128076;</span>
+              <span class="mapping-desc">OK &rarr; Confirm / Select</span>
+            </div>
+            <div class="mapping-item">
+              <span class="gesture-icon">&#128072;</span>
+              <span class="mapping-desc">Point Left &rarr; Rewind</span>
+            </div>
+            <div class="mapping-item">
+              <span class="gesture-icon">&#128073;</span>
+              <span class="mapping-desc">Point Right &rarr; Forward</span>
+            </div>
+            <div class="mapping-item">
+              <span class="gesture-icon">&#128070;</span>
+              <span class="mapping-desc">Point Up &rarr; Volume Up</span>
+            </div>
+            <div class="mapping-item">
+              <span class="gesture-icon">&#128071;</span>
+              <span class="mapping-desc">Point Down &rarr; Volume Down</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-section" id="instruments-panel">
+          <h3>Instruments</h3>
+          <div class="instrument-list">
+            <button class="instrument-btn active" data-instrument="sine">
+              <div class="inst-visual sine-wave"></div>
+              <span>Sine Pad</span>
+            </button>
+            <button class="instrument-btn" data-instrument="square">
+              <div class="inst-visual square-wave"></div>
+              <span>Square Lead</span>
+            </button>
+            <button class="instrument-btn" data-instrument="sawtooth">
+              <div class="inst-visual saw-wave"></div>
+              <span>Saw Bass</span>
+            </button>
+            <button class="instrument-btn" data-instrument="triangle">
+              <div class="inst-visual tri-wave"></div>
+              <span>Triangle Bell</span>
+            </button>
+            <button class="instrument-btn" data-instrument="drums">
+              <div class="inst-visual drum-icon"></div>
+              <span>Drum Kit</span>
+            </button>
+            <button class="instrument-btn" data-instrument="noise">
+              <div class="inst-visual noise-icon"></div>
+              <span>Noise / FX</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center - Visualization + Timeline -->
+      <section id="center-panel">
+        <!-- Main Visualization Area -->
+        <div id="visualization-area">
+          <div id="viz-tabs">
+            <button class="viz-tab active" data-viz="spectrum">Spectrum</button>
+            <button class="viz-tab" data-viz="waveform">Waveform</button>
+            <button class="viz-tab" data-viz="chromatic">Chromatic Circle</button>
+            <button class="viz-tab" data-viz="particles">Particle Field</button>
+            <button class="viz-tab" data-viz="spectrogram">Spectrogram</button>
+          </div>
+          <canvas id="main-viz-canvas"></canvas>
+          <div id="frequency-legend">
+            <span class="freq-low">20Hz</span>
+            <span class="freq-mid">1kHz</span>
+            <span class="freq-high">20kHz</span>
+          </div>
+        </div>
+
+        <!-- Visual Piano Roll / Sequencer -->
+        <div id="sequencer-area">
+          <div id="sequencer-header">
+            <h3>Visual Sequencer</h3>
+            <div class="seq-controls">
+              <label>Steps: <select id="step-count">
+                <option value="8">8</option>
+                <option value="16" selected>16</option>
+                <option value="32">32</option>
+                <option value="64">64</option>
+              </select></label>
+              <label>Scale: <select id="scale-select">
+                <option value="chromatic">Chromatic</option>
+                <option value="major" selected>Major</option>
+                <option value="minor">Minor</option>
+                <option value="pentatonic">Pentatonic</option>
+                <option value="blues">Blues</option>
+              </select></label>
+              <label>Key: <select id="key-select">
+                <option value="C">C</option>
+                <option value="C#">C#</option>
+                <option value="D">D</option>
+                <option value="D#">D#</option>
+                <option value="E">E</option>
+                <option value="F">F</option>
+                <option value="F#">F#</option>
+                <option value="G">G</option>
+                <option value="G#">G#</option>
+                <option value="A">A</option>
+                <option value="A#">A#</option>
+                <option value="B">B</option>
+              </select></label>
+              <button id="clear-seq" class="seq-btn">Clear</button>
+            </div>
+          </div>
+          <div id="sequencer-grid-container">
+            <div id="note-labels"></div>
+            <div id="sequencer-grid"></div>
+          </div>
+        </div>
+
+        <!-- Track Timeline -->
+        <div id="track-area">
+          <div id="track-header">
+            <h3>Tracks</h3>
+            <button id="add-track-btn" class="seq-btn">+ Add Track</button>
+          </div>
+          <div id="tracks-container">
+            <!-- Tracks rendered by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Panel - Visual Mixer & Effects -->
+      <aside id="right-panel">
+        <div class="panel-section" id="visual-mixer">
+          <h3>Visual Mixer</h3>
+          <div id="mixer-channels">
+            <!-- Mixer channels rendered by JS -->
+          </div>
+        </div>
+
+        <div class="panel-section" id="effects-panel">
+          <h3>Visual Effects</h3>
+          <div class="effect-control">
+            <label>Reverb</label>
+            <div class="visual-knob" data-param="reverb" data-value="0.3">
+              <canvas class="knob-canvas" width="60" height="60"></canvas>
+              <span class="knob-value">30%</span>
+            </div>
+            <div class="effect-viz reverb-viz"></div>
+          </div>
+          <div class="effect-control">
+            <label>Delay</label>
+            <div class="visual-knob" data-param="delay" data-value="0.0">
+              <canvas class="knob-canvas" width="60" height="60"></canvas>
+              <span class="knob-value">0%</span>
+            </div>
+            <div class="effect-viz delay-viz"></div>
+          </div>
+          <div class="effect-control">
+            <label>Distortion</label>
+            <div class="visual-knob" data-param="distortion" data-value="0.0">
+              <canvas class="knob-canvas" width="60" height="60"></canvas>
+              <span class="knob-value">0%</span>
+            </div>
+            <div class="effect-viz dist-viz"></div>
+          </div>
+          <div class="effect-control">
+            <label>Filter Cutoff</label>
+            <div class="visual-knob" data-param="filter" data-value="1.0">
+              <canvas class="knob-canvas" width="60" height="60"></canvas>
+              <span class="knob-value">100%</span>
+            </div>
+            <div class="effect-viz filter-viz"></div>
+          </div>
+        </div>
+
+        <!-- Haptic Visual Feedback -->
+        <div class="panel-section" id="haptic-panel">
+          <h3>Haptic Visual Pulse</h3>
+          <div id="haptic-display">
+            <div class="pulse-ring" id="pulse-bass"></div>
+            <div class="pulse-ring" id="pulse-mid"></div>
+            <div class="pulse-ring" id="pulse-high"></div>
+            <div class="pulse-label">Bass</div>
+            <div class="pulse-label mid-label">Mid</div>
+            <div class="pulse-label high-label">High</div>
+          </div>
+          <div id="vibration-indicator">
+            <span>Vibration Intensity</span>
+            <div class="vib-bar-container">
+              <div class="vib-bar" id="vib-bar"></div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Bottom Status Bar -->
+    <footer id="status-bar">
+      <span id="status-text">Ready - Visual DAW Loaded</span>
+      <span id="audio-status">Audio: Idle</span>
+      <span id="sign-status">Sign Language: Disabled</span>
+      <span id="latency-display">Latency: --</span>
+    </footer>
+  </div>
+
+  <!-- Accessibility Overlay -->
+  <div id="a11y-overlay" class="overlay hidden">
+    <div class="overlay-content">
+      <h2>Accessibility Settings</h2>
+      <button class="close-overlay" aria-label="Close">&times;</button>
+      <div class="a11y-options">
+        <label class="a11y-option">
+          <input type="checkbox" id="opt-high-contrast"> High Contrast Mode
+        </label>
+        <label class="a11y-option">
+          <input type="checkbox" id="opt-flash-alerts" checked> Flash Alerts for Beat
+        </label>
+        <label class="a11y-option">
+          <input type="checkbox" id="opt-color-blind"> Color Blind Friendly Palette
+        </label>
+        <label class="a11y-option">
+          <input type="checkbox" id="opt-large-viz" checked> Large Visualizations
+        </label>
+        <label class="a11y-option">
+          <input type="checkbox" id="opt-haptic" checked> Haptic Pulse Display
+        </label>
+        <label class="a11y-option">
+          <input type="checkbox" id="opt-screen-reader"> Screen Reader Descriptions
+        </label>
+        <div class="a11y-option">
+          <label for="viz-intensity">Visualization Intensity</label>
+          <input type="range" id="viz-intensity" min="0.2" max="2.0" step="0.1" value="1.0">
+        </div>
+        <div class="a11y-option">
+          <label for="flash-rate">Beat Flash Rate</label>
+          <input type="range" id="flash-rate" min="0.5" max="3.0" step="0.1" value="1.0">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="audio-engine.js"></script>
+  <script src="visualizer.js"></script>
+  <script src="sign-language.js"></script>
+  <script src="sequencer.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
