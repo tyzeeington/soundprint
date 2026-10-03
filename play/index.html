@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>SoundPrint Play</title>
+  <meta name="theme-color" content="#ffd60a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Music Play">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="apple-touch-icon" href="../visual-daw/apple-touch-icon.png">
+  <link rel="icon" type="image/svg+xml" href="../visual-daw/icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="sparkle-canvas"></canvas>
+
+  <header id="play-header">
+    <h1 class="play-title">
+      <span class="title-emoji">🎵</span>
+      Music Play
+      <span class="title-emoji">🎵</span>
+    </h1>
+    <a href="../visual-daw/" class="pro-link" title="DJ Mode for grown-ups">DJ Mode &rarr;</a>
+  </header>
+
+  <main id="play-main">
+    <nav class="worlds" aria-label="Music worlds">
+      <button class="world active" data-genre="house">
+        <span class="world-emoji">☀️</span>
+        <span class="world-name">SUNSHINE</span>
+      </button>
+      <button class="world" data-genre="dnb">
+        <span class="world-emoji">⚡</span>
+        <span class="world-name">THUNDER</span>
+      </button>
+      <button class="world" data-genre="downtempo">
+        <span class="world-emoji">🌲</span>
+        <span class="world-name">FOREST</span>
+      </button>
+    </nav>
+
+    <div class="character-stage">
+      <div id="character" class="character" aria-hidden="true">
+        <svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+          <!-- shadow -->
+          <ellipse cx="110" cy="200" rx="60" ry="6" fill="rgba(0,0,0,0.18)"/>
+          <!-- headphone band -->
+          <path d="M40 90 Q 110 18 180 90" stroke="#1a1a2e" stroke-width="10" fill="none" stroke-linecap="round"/>
+          <!-- ear cups -->
+          <circle cx="40" cy="115" r="22" fill="#1a1a2e"/>
+          <circle cx="180" cy="115" r="22" fill="#1a1a2e"/>
+          <circle cx="40" cy="115" r="10" fill="#5eead4"/>
+          <circle cx="180" cy="115" r="10" fill="#5eead4"/>
+          <!-- face -->
+          <circle cx="110" cy="120" r="65" fill="#ffd60a"/>
+          <!-- cheeks -->
+          <circle cx="80" cy="135" r="9" fill="#ff8fa3" opacity="0.7"/>
+          <circle cx="140" cy="135" r="9" fill="#ff8fa3" opacity="0.7"/>
+          <!-- eyes -->
+          <g class="char-eyes">
+            <circle cx="88" cy="110" r="7" fill="#1a1a2e"/>
+            <circle cx="132" cy="110" r="7" fill="#1a1a2e"/>
+            <circle cx="90" cy="108" r="2" fill="#fff"/>
+            <circle cx="134" cy="108" r="2" fill="#fff"/>
+          </g>
+          <!-- smile -->
+          <path class="char-mouth" d="M88 145 Q 110 160 132 145" stroke="#1a1a2e" stroke-width="5" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="char-glow"></div>
+      </div>
+      <div class="speech" id="speech">tap a tile to make a sound!</div>
+    </div>
+
+    <section class="grid-wrap">
+      <div id="play-grid" class="play-grid"><!-- rendered by play.js --></div>
+      <button id="stop-all" class="stop-btn" aria-label="Stop everything">
+        <span class="stop-emoji">⏹</span>
+        <span class="stop-text">STOP</span>
+      </button>
+    </section>
+  </main>
+
+  <!-- Shared engine + voice modules from the DAW route -->
+  <script src="../visual-daw/audio-engine.js"></script>
+  <script src="../visual-daw/voices/house-voices.js"></script>
+  <script src="../visual-daw/voices/dnb-voices.js"></script>
+  <script src="../visual-daw/voices/downtempo-voices.js"></script>
+  <script src="../visual-daw/sequencer.js"></script>
+  <script src="../visual-daw/session-view.js"></script>
+  <script src="play.js"></script>
+</body>
+</html>

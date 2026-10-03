@@ -2,8 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SoundPrint Visual DAW - See Your Sound</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>SoundPrint Visual DAW</title>
+  <meta name="theme-color" content="#0f0f1a">
+  <meta name="color-scheme" content="dark">
+  <!-- iOS PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SoundPrint">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,6 +25,10 @@
         <span class="logo-icon">&#9835;</span>
         <span class="logo-text">SoundPrint <span class="subtitle">Visual DAW</span></span>
       </div>
+      <nav id="view-tabs" aria-label="Workspace mode">
+        <button class="view-tab active" data-view="studio" title="FL/Logic-style step + arrangement">Studio</button>
+        <button class="view-tab" data-view="session" title="Ableton-style clip launcher">Session</button>
+      </nav>
       <div class="transport-controls">
         <button id="btn-rewind" class="transport-btn" title="Rewind" aria-label="Rewind">&#9194;</button>
         <button id="btn-play" class="transport-btn play-btn" title="Play" aria-label="Play">&#9654;</button>
@@ -28,6 +43,16 @@
         </div>
       </div>
       <div class="top-actions">
+        <div id="midi-controls" class="midi-controls" title="Follow a synth via MIDI from your DAW">
+          <button id="btn-midi-follow" class="action-btn midi-btn">
+            <span class="midi-dot" aria-hidden="true"></span>
+            <span class="midi-label">MIDI Follow</span>
+          </button>
+          <select id="midi-input-select" class="midi-select" aria-label="MIDI input device">
+            <option value="">No input</option>
+          </select>
+          <span id="midi-note-display" class="midi-note-display" aria-live="polite">--</span>
+        </div>
         <button id="btn-sign-language" class="action-btn sign-btn" title="Enable Sign Language Control">
           <span class="hand-icon">&#9995;</span> Sign Mode
         </button>
@@ -136,6 +161,15 @@
             <span class="freq-mid">1kHz</span>
             <span class="freq-high">20kHz</span>
           </div>
+        </div>
+
+        <!-- Session View (Ableton clip launcher) -->
+        <div id="session-area" class="hidden">
+          <div id="session-header">
+            <h3>Session <span class="session-subtitle">clip launcher</span></h3>
+            <div class="session-hint">Click a clip to launch. Click a scene <span class="key">&#9654;</span> to fire the row. Click again to stop.</div>
+          </div>
+          <div id="session-grid-container"></div>
         </div>
 
         <!-- Visual Piano Roll / Sequencer -->
@@ -262,6 +296,7 @@
       <span id="status-text">Ready - Visual DAW Loaded</span>
       <span id="audio-status">Audio: Idle</span>
       <span id="sign-status">Sign Language: Disabled</span>
+      <span id="midi-status">MIDI: Idle</span>
       <span id="latency-display">Latency: --</span>
     </footer>
   </div>
@@ -303,9 +338,14 @@
   </div>
 
   <script src="audio-engine.js"></script>
+  <script src="voices/house-voices.js"></script>
+  <script src="voices/dnb-voices.js"></script>
+  <script src="voices/downtempo-voices.js"></script>
   <script src="visualizer.js"></script>
   <script src="sign-language.js"></script>
   <script src="sequencer.js"></script>
+  <script src="midi-follow.js"></script>
+  <script src="session-view.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

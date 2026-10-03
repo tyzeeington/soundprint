@@ -221,10 +221,11 @@ class VisualSequencer {
           this.audio.setWaveform(track.instrument);
 
           const stepDuration = (60 / this.bpm / 4);
+          const lengthMul = track.noteLengthMul || 1;
           const noteId = this.audio.playNote(
             note.frequency,
             track.volume,
-            stepDuration * 0.8 // Slightly shorter than step for separation
+            stepDuration * 0.8 * lengthMul
           );
 
           this.audio.setWaveform(prevWaveform);

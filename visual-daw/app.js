@@ -10,8 +10,11 @@
   // ---- Core Instances ----
   const audioEngine = new AudioEngine();
   const signController = new SignLanguageController();
+  const midiFollow = new MidiFollower();
   let visualizer = null;
   let sequencer = null;
+  let sessionView = null;
+  let currentView = 'studio';
   let isAudioReady = false;
 
   // ---- DOM Elements ----
@@ -56,6 +59,7 @@
         updateTime();
         updateHapticDisplay();
         updateMixerMeters();
+        if (sessionView) sessionView.onStep(step);
 
         // Beat flash
         if (step % 4 === 0) {
@@ -336,20 +340,34 @@
 
       drawKnob(value);
 
-      // Drag to change value
-      let isDragging = false;
+      // Pointer-based drag (works for mouse + touch on iPad)
+      let dragPointerId = null;
       let startY = 0;
       let startValue = 0;
+      let lastTap = 0;
 
-      knob.addEventListener('mousedown', (e) => {
-        isDragging = true;
+      knob.addEventListener('pointerdown', (e) => {
+        dragPointerId = e.pointerId;
         startY = e.clientY;
         startValue = value;
+        knob.setPointerCapture(e.pointerId);
         e.preventDefault();
+
+        // Manual double-tap reset (dblclick doesn't fire reliably on iPad).
+        const now = Date.now();
+        if (now - lastTap < 280) {
+          const defaults = { reverb: 0.3, delay: 0.0, distortion: 0.0, filter: 1.0 };
+          value = defaults[param] !== undefined ? defaults[param] : 0.5;
+          knob.dataset.value = value;
+          drawKnob(value);
+          audioEngine.setParam(param, value);
+          dragPointerId = null;
+        }
+        lastTap = now;
       });
 
-      document.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
+      knob.addEventListener('pointermove', (e) => {
+        if (e.pointerId !== dragPointerId) return;
         const dy = startY - e.clientY;
         value = Math.max(0, Math.min(1, startValue + dy / 100));
         knob.dataset.value = value;
@@ -357,18 +375,11 @@
         audioEngine.setParam(param, value);
       });
 
-      document.addEventListener('mouseup', () => {
-        isDragging = false;
-      });
-
-      // Double-click to reset
-      knob.addEventListener('dblclick', () => {
-        const defaults = { reverb: 0.3, delay: 0.0, distortion: 0.0, filter: 1.0 };
-        value = defaults[param] || 0.5;
-        knob.dataset.value = value;
-        drawKnob(value);
-        audioEngine.setParam(param, value);
-      });
+      const endDrag = (e) => {
+        if (e.pointerId === dragPointerId) dragPointerId = null;
+      };
+      knob.addEventListener('pointerup', endDrag);
+      knob.addEventListener('pointercancel', endDrag);
     });
   }
 
@@ -392,22 +403,27 @@
         </div>
       `;
 
-      // Fader interaction
+      // Fader interaction (pointer events for mouse + touch)
       const faderContainer = channel.querySelector('.mixer-fader-container');
-      let faderDragging = false;
+      let faderPointerId = null;
 
-      faderContainer.addEventListener('mousedown', (e) => {
-        faderDragging = true;
+      faderContainer.addEventListener('pointerdown', (e) => {
+        faderPointerId = e.pointerId;
+        faderContainer.setPointerCapture(e.pointerId);
+        updateFader(e);
+        e.preventDefault();
+      });
+
+      faderContainer.addEventListener('pointermove', (e) => {
+        if (e.pointerId !== faderPointerId) return;
         updateFader(e);
       });
 
-      document.addEventListener('mousemove', (e) => {
-        if (faderDragging) updateFader(e);
-      });
-
-      document.addEventListener('mouseup', () => {
-        faderDragging = false;
-      });
+      const endFader = (e) => {
+        if (e.pointerId === faderPointerId) faderPointerId = null;
+      };
+      faderContainer.addEventListener('pointerup', endFader);
+      faderContainer.addEventListener('pointercancel', endFader);
 
       function updateFader(e) {
         const rect = faderContainer.getBoundingClientRect();
@@ -561,6 +577,242 @@
 
   // ---- Initial Status ----
   statusText.textContent = 'Click anywhere to initialize audio engine';
+
+  // ---- MIDI Follow ----
+  const btnMidiFollow = document.getElementById('btn-midi-follow');
+  const midiSelect = document.getElementById('midi-input-select');
+  const midiNoteDisplay = document.getElementById('midi-note-display');
+  const midiStatus = document.getElementById('midi-status');
+  const midiDot = btnMidiFollow.querySelector('.midi-dot');
+  const midiActiveNotes = new Map(); // midiNote -> audioEngine note id
+  let midiInitStarted = false;
+
+  function populateMidiInputs(inputs) {
+    const previousValue = midiSelect.value;
+    midiSelect.innerHTML = '';
+    if (!inputs.length) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No MIDI inputs detected';
+      midiSelect.appendChild(opt);
+      midiStatus.textContent = 'MIDI: No inputs';
+      return;
+    }
+    inputs.forEach((input) => {
+      const opt = document.createElement('option');
+      opt.value = input.id;
+      const label = input.name || 'Unknown';
+      const mfg = input.manufacturer ? ` (${input.manufacturer})` : '';
+      opt.textContent = `${label}${mfg}`;
+      midiSelect.appendChild(opt);
+    });
+    if (previousValue && inputs.some(i => i.id === previousValue)) {
+      midiSelect.value = previousValue;
+    }
+  }
+
+  function pulseMidiDot() {
+    midiDot.classList.add('flash');
+    setTimeout(() => midiDot.classList.remove('flash'), 90);
+  }
+
+  midiFollow.on('inputsChanged', (inputs) => {
+    populateMidiInputs(inputs);
+    if (midiFollow.enabled && !inputs.find(i => i.id === midiSelect.value)) {
+      btnMidiFollow.classList.remove('active');
+      midiStatus.textContent = 'MIDI: Disconnected';
+    }
+  });
+
+  midiFollow.on('noteOn', async (note, velocity) => {
+    if (!isAudioReady) await initAudio();
+    await audioEngine.resume();
+    // If the same MIDI note retriggers, release the prior voice first.
+    if (midiActiveNotes.has(note)) {
+      audioEngine.stopNote(midiActiveNotes.get(note));
+    }
+    const freq = MidiFollower.midiNoteToFreq(note);
+    const id = audioEngine.playNote(freq, Math.max(0.15, velocity));
+    if (id) midiActiveNotes.set(note, id);
+    midiNoteDisplay.textContent = MidiFollower.midiNoteToName(note);
+    pulseMidiDot();
+  });
+
+  midiFollow.on('noteOff', (note) => {
+    const id = midiActiveNotes.get(note);
+    if (id) {
+      audioEngine.stopNote(id);
+      midiActiveNotes.delete(note);
+    }
+    if (midiActiveNotes.size === 0) {
+      midiNoteDisplay.textContent = '--';
+    }
+  });
+
+  midiFollow.on('cc', (controller, value) => {
+    // Mod wheel sweeps the filter so DJ wiggle paints the visualizer.
+    if (controller === 1) {
+      audioEngine.setParam('filter', value);
+    } else if (controller === 7) {
+      audioEngine.setMasterVolume(value);
+    }
+  });
+
+  midiFollow.on('pitchBend', (bend) => {
+    // ±2 semitone bend on every active note
+    const semitones = bend * 2;
+    midiActiveNotes.forEach((id) => {
+      const note = audioEngine.activeNotes.get(id);
+      if (note && note.osc && note.osc.frequency) {
+        const base = note.osc.frequency.value;
+        note.osc.frequency.setTargetAtTime(
+          base * Math.pow(2, semitones / 12),
+          audioEngine.ctx.currentTime,
+          0.01
+        );
+      }
+    });
+  });
+
+  btnMidiFollow.addEventListener('click', async () => {
+    if (!midiFollow.isSupported()) {
+      midiStatus.textContent = 'MIDI: Not supported in this browser';
+      statusText.textContent = 'Web MIDI requires Chrome, Edge, or Opera';
+      return;
+    }
+
+    if (midiFollow.enabled) {
+      midiFollow.disable();
+      btnMidiFollow.classList.remove('active');
+      midiStatus.textContent = 'MIDI: Idle';
+      midiNoteDisplay.textContent = '--';
+      return;
+    }
+
+    try {
+      if (!midiInitStarted) {
+        midiInitStarted = true;
+        await midiFollow.init();
+      }
+      if (!midiFollow.inputs.length) {
+        midiStatus.textContent = 'MIDI: No inputs (plug in a controller or enable IAC)';
+        statusText.textContent = 'No MIDI inputs found. Try IAC Driver (Mac) or loopMIDI (Windows).';
+        return;
+      }
+      const id = midiSelect.value || midiFollow.inputs[0].id;
+      midiSelect.value = id;
+      midiFollow.selectInput(id);
+      btnMidiFollow.classList.add('active');
+      const inputName = midiFollow.activeInput ? midiFollow.activeInput.name : 'Unknown';
+      midiStatus.textContent = `MIDI: ${inputName}`;
+      statusText.textContent = `Following MIDI from ${inputName}`;
+      await initAudio();
+    } catch (err) {
+      console.error('MIDI init failed:', err);
+      midiStatus.textContent = 'MIDI: Permission denied';
+      statusText.textContent = 'MIDI access denied. Allow in browser settings and retry.';
+    }
+  });
+
+  midiSelect.addEventListener('change', () => {
+    if (!midiFollow.enabled) return;
+    midiFollow.selectInput(midiSelect.value);
+    if (midiFollow.activeInput) {
+      midiStatus.textContent = `MIDI: ${midiFollow.activeInput.name}`;
+    }
+  });
+
+  // ---- View Switcher (Studio / Session) ----
+  const sequencerArea = document.getElementById('sequencer-area');
+  const trackArea = document.getElementById('track-area');
+  const sessionArea = document.getElementById('session-area');
+  const sessionGridContainer = document.getElementById('session-grid-container');
+  const viewTabs = document.querySelectorAll('.view-tab');
+
+  async function activateSession() {
+    await initAudio();
+    if (!sessionView) {
+      sessionView = new SessionView(audioEngine, sequencer);
+      sessionView.onTransportNeeded = () => {
+        if (!sequencer.isPlaying) {
+          sequencer.play();
+          btnPlay.classList.add('active');
+          audioStatus.textContent = 'Audio: Playing';
+        }
+      };
+      sessionView.onGenreChange = (g) => {
+        bpmInput.value = g.bpm;
+        renderTracks();
+        renderMixer();
+        statusText.textContent = `${g.name} bank · ${g.bpm} BPM · ${g.drumStyle} drum kit`;
+      };
+    }
+    sessionView.bindToSequencer();
+    bpmInput.value = sessionView.genre.bpm;
+    sessionView.render(sessionGridContainer);
+    renderTracks();
+    renderMixer();
+    sequencerArea.classList.add('hidden');
+    trackArea.classList.add('hidden');
+    sessionArea.classList.remove('hidden');
+    statusText.textContent = 'Session view - click a clip to launch, scene to fire a row';
+  }
+
+  function activateStudio() {
+    sessionArea.classList.add('hidden');
+    sequencerArea.classList.remove('hidden');
+    trackArea.classList.remove('hidden');
+    if (sequencer) {
+      renderSequencer();
+      renderTracks();
+      renderMixer();
+    }
+    statusText.textContent = 'Studio view';
+  }
+
+  viewTabs.forEach((tab) => {
+    tab.addEventListener('click', async () => {
+      const view = tab.dataset.view;
+      if (view === currentView) return;
+      currentView = view;
+      viewTabs.forEach((t) => t.classList.toggle('active', t === tab));
+      if (view === 'session') {
+        await activateSession();
+      } else {
+        activateStudio();
+      }
+    });
+  });
+
+  // ---- Service worker registration (offline + installability) ----
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => { /* dev-only fail is fine */ });
+    });
+  }
+
+  // ---- iPad / PWA wake lock — keep screen on during a set ----
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch (e) { /* user can't grant; not critical */ }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && isAudioReady) requestWakeLock();
+  });
+  // Acquire on first audio init (counts as a user gesture path).
+  document.addEventListener('click', requestWakeLock, { once: true });
+  document.addEventListener('touchend', requestWakeLock, { once: true });
+
+  // Prevent iOS pinch-zoom gestures on the app surface.
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+  // Prevent two-finger zoom from triggering page zoom.
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches && e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
 
   // ---- Latency display ----
   setInterval(() => {
